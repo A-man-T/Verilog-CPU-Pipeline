@@ -1,0 +1,12 @@
+(1) Discuss the hazards you had to deal with. For each:
+
+ - What type of hazard was it?
+
+ - Show an instruction sequence that exposes it
+
+ - What solutions did you consider?
+
+ - Which one did you pick? Why?
+
+
+(2) Can your implementation handle misaligned memory references? Explain
