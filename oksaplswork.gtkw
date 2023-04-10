@@ -1,0 +1,61 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Mon Apr 10 09:05:36 2023
+[*]
+[dumpfile] "/u/amana/cs429h_s23_p6_amana/test.vcd"
+[dumpfile_mtime] "Mon Apr 10 09:05:00 2023"
+[dumpfile_size] 9773
+[savefile] "/u/amana/cs429h_s23_p6_amana/oksaplswork.gtkw"
+[timestart] 0
+[size] 1680 929
+[pos] -1 -1
+*-11.716814 13370 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] main.
+[sst_width] 214
+[signals_width] 285
+[sst_expanded] 1
+[sst_vpaned_height] 434
+@28
+main.clk
+@22
+main.regs.r2[15:0]
+main.regs.r3[15:0]
+@24
+main.w_output[15:0]
+main.regWen
+main.regWaddr[3:0]
+main.regWdata[15:0]
+@28
+main.memWen
+@24
+main.memWaddr[15:1]
+main.memWdata[15:0]
+main.w_computed_value[15:0]
+@22
+main.w_output[15:0]
+main.e_computed_value[15:0]
+main.m1OutputInstruction[15:0]
+main.m0InputInstruction[15:1]
+@28
+main.memWen
+@24
+main.memWaddr[15:1]
+@22
+main.memWdata[15:0]
+main.regWdata[15:0]
+main.m_rdata0[15:0]
+main.m_ra[3:0]
+main.m_r2[3:0]
+@24
+main.rdata0[15:0]
+@22
+main.w_output[15:0]
+main.e_computed_value[15:0]
+@28
+main.e_is_ld
+main.m_is_ld
+main.d_is_ld
+@29
+main.w_is_ld
+[pattern_trace] 1
+[pattern_trace] 0
