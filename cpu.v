@@ -67,9 +67,11 @@ module main();
 
     //F0 + PC
     reg validF0 = 0;
+    reg [15:0] f0_pc;
     always @(posedge clk) begin
 
         //$write("pc = %d\n",pc);
+        f0_pc <= pc;
         pc <= flushTarget;
         validF0 <= 1 & !flush;
     end
@@ -80,7 +82,7 @@ module main();
     //reg [15:0] f1_instruction = 16'h0000;
     always @(posedge clk) begin
         //$write("f1_pc = %d\n",f1_pc);
-        f1_pc <= pc;
+        f1_pc <= f0_pc;
         validF1 <= validF0 & !flush;
         //move this to the next stage 
         //f1_instruction <= fetchOutputInstruction;
@@ -187,9 +189,9 @@ module main();
     reg m_is_invalid;
     reg [15:0] m_pc;
 
-
-    wire [15:0] mem_rdata1 = d_r2==4'b0000 ? 0: rdata1;
-    wire [15:0] mem_rdata0 = d_ra==4'b0000 ? 0 : rdata0;
+//Forward here x2
+    wire [15:0] mem_rdata1 = r_forwardfromM==d_r2 ?v_forwardfromM : r_forwardfromE == d_r2 ? v_forwardfromE : d_r2==4'b0000 ? 0: rdata1;
+    wire [15:0] mem_rdata0 = r_forwardfromM==d_ra ? v_forwardfromM : r_forwardfromE == d_ra ? v_forwardfromE : d_ra==4'b0000 ? 0 : rdata0;
     assign m0InputInstruction = mem_rdata0[15:1];
 
 
@@ -217,8 +219,9 @@ module main();
         m_is_st<= d_is_st;
         m_is_invalid <= d_is_invalid;
 
-        m_rdata1 <= mem_rdata1;
-        m_rdata0 <= mem_rdata0;
+
+        m_rdata1 <= mem_rdata1; //forwardWtoD && e_rt==d_r2? e_output:mem_rdata1;
+        m_rdata0 <= mem_rdata0; //forwardWtoD && e_rt==d_ra? e_output:mem_rdata0;
 
 
         m_rt <= d_rt;
@@ -227,6 +230,21 @@ module main();
    
 
     end
+    wire [15:0]c_rdata0 = r_forwardfromE == m_ra ? v_forwardfromE : m_rdata0;
+    wire [15:0]c_rdata1 = r_forwardfromE == m_r2 ? v_forwardfromE : m_rdata1;
+
+    wire [15:0]m_computed_value = m_is_sub ? m_rdata0 - m_rdata1:
+    m_is_movl ? {{8{m_i[7]}}, m_i} :
+    m_is_movh ? {m_i,c_rdata1[7:0]} :
+    m_is_jz ? c_rdata0 == 0 :
+    m_is_jnz ? c_rdata0 != 0 :
+    m_is_js ? c_rdata0[15] == 1 :
+    m_is_jns ? c_rdata0[15] == 0 :
+    m_is_st ? c_rdata1 : 0;
+
+    wire forwardfromM = (~(m_is_jmp|m_is_st)&validM) && (m_rt!=4'b0000) ? 1:0;
+    wire[3:0] r_forwardfromM = forwardfromM ? m_rt : 4'b0000;
+    wire[15:0] v_forwardfromM = forwardfromM ? m_computed_value : 16'h0000;
 
     
     //Execute
@@ -260,6 +278,8 @@ module main();
     reg [3:0] e_ra;
     reg [3:0] e_rb;
 
+    reg is_str_ld;
+    reg [15:0]str_ld_val;
 
     always @(posedge clk) begin
         e_r2 <= m_r2;
@@ -277,11 +297,15 @@ module main();
         e_is_ld<= m_is_ld;
         e_is_st<= m_is_st;
         e_is_invalid <= m_is_invalid;
-        e_rdata1 <= m_rdata1;
-        e_rdata0 <= m_rdata0;
+        e_rdata1 <= c_rdata1;
+        e_rdata0 <= c_rdata0;
         e_rt <= m_rt;
         e_ra <= m_ra;
         e_rb <= m_rb; 
+
+        is_str_ld <= (e_rdata0 == m_rdata0) & validE & validM & e_is_st & m_is_ld;
+        str_ld_val <= e_rdata1;
+
         if(e_rt==4'b0000 &&  ~(e_is_jmp|e_is_st) &&validE)
            $write("%c",e_output[7:0]);    
 
@@ -310,15 +334,21 @@ module main();
     assign memWaddr = e_rdata0[15:1];
     assign memWdata = e_computed_value;
 
-    wire[15:0] e_output = e_is_ld ? m1OutputInstruction : e_computed_value;
+    wire[15:0] e_output = (is_str_ld) ? str_ld_val:
+                             e_is_ld ? m1OutputInstruction 
+                             : e_computed_value;
 
 
 
    //| (validE & validM & e_is_ld && m_is_ld)
         
 
-    //wire forwardWtoE = validW && (w_rt == e_ra || w_rt ==e_rt)? 1: 0;
+    //wire forwardWtoE = regWen && (e_rt == m_ra || e_rt ==m_r2)? 1: 0;
+    //wire forwardWtoD = regWen && (e_rt == d_ra || e_rt ==d_r2)? 1: 0;
 
+    wire forwardfromE = regWen && (e_rt!=4'b0000) ? 1:0;
+    wire[3:0] r_forwardfromE = forwardfromE ? e_rt : 4'b0000;
+    wire[15:0] v_forwardfromE = forwardfromE ? e_output : 16'h0000;
     
     assign regWen = ~(e_is_jmp|e_is_st)&validE;
     assign regWaddr = e_rt;
