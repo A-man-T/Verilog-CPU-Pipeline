@@ -38,9 +38,9 @@ module main();
 
     // memory
     mem mem(clk,
-         flush ? flushTarget[15:1] : pc[15:1],fetchOutputInstruction,
-         m0InputInstruction,m1OutputInstruction,
-         memWen,memWaddr,memWdata);
+         pc[15:1],fetchOutputInstruction,
+         m0InputInstruction[15:1],m1OutputInstruction,
+         memWen,memWaddr[15:1],memWdata);
 
 
 
@@ -66,11 +66,12 @@ module main();
 
 
     //F0 + PC
-    reg validF0 = 1;
+    reg validF0 = 0;
     always @(posedge clk) begin
 
         //$write("pc = %d\n",pc);
-        pc <= flush ? flushTarget+2: pc + 2;
+        pc <= flushTarget;
+        validF0 <= 1 & !flush;
     end
 
     //F1
@@ -80,7 +81,7 @@ module main();
     always @(posedge clk) begin
         //$write("f1_pc = %d\n",f1_pc);
         f1_pc <= pc;
-        validF1 <= validF0;
+        validF1 <= validF0 & !flush;
         //move this to the next stage 
         //f1_instruction <= fetchOutputInstruction;
         //$write("f1_instruction = %d\n",f1_instruction);
@@ -88,42 +89,80 @@ module main();
 
     //Decode Logic 
     //Decompose the Instruction
-    wire [3:0] opcode = fetchOutputInstruction[15:12];
-    wire [3:0] ra = fetchOutputInstruction[11:8];
-    wire [3:0] rb = fetchOutputInstruction[7:4];
-    wire [3:0] rt = fetchOutputInstruction[3:0];
-    wire [7:0] d_i = fetchOutputInstruction[11:4];
+    wire [3:0] de_opcode = fetchOutputInstruction[15:12];
+    wire [3:0] de_ra = fetchOutputInstruction[11:8];
+    wire [3:0] de_rb = fetchOutputInstruction[7:4];
+    wire [3:0] de_rt = fetchOutputInstruction[3:0];
+    wire [7:0] de_i = fetchOutputInstruction[11:4];
 
     //Decode the operator 
-    wire d_is_sub = opcode == 4'b0000;
-    wire d_is_movl = opcode == 4'b1000;
-    wire d_is_movh = opcode == 4'b1001;
-    wire d_is_jmp = opcode == 4'b1110;
-    wire d_is_mem = opcode == 4'b1111;
+    wire de_is_sub = de_opcode == 4'b0000;
+    wire de_is_movl = de_opcode == 4'b1000;
+    wire de_is_movh = de_opcode == 4'b1001;
+    wire de_is_jmp = de_opcode == 4'b1110;
+    wire de_is_mem = de_opcode == 4'b1111;
 
-    wire d_is_jz = d_is_jmp && rb == 4'b0000;
-    wire d_is_jnz = d_is_jmp && rb == 4'b0001;
-    wire d_is_js = d_is_jmp && rb == 4'b0010;
-    wire d_is_jns = d_is_jmp && rb == 4'b0011;
+    wire de_is_jz = de_is_jmp && de_rb == 4'b0000;
+    wire de_is_jnz = de_is_jmp && de_rb == 4'b0001;
+    wire de_is_js = de_is_jmp && de_rb == 4'b0010;
+    wire de_is_jns = de_is_jmp && de_rb == 4'b0011;
 
-    wire d_is_ld = d_is_mem && rb==4'b0000;
-    wire d_is_st = d_is_mem && rb==4'b0001;
+    wire de_is_ld = de_is_mem && de_rb==4'b0000;
+    wire de_is_st = de_is_mem && de_rb==4'b0001;
 
-    wire d_is_invalid = ~(d_is_sub|d_is_movl|d_is_movh|d_is_jz|d_is_jnz|d_is_js|d_is_jns|d_is_ld|d_is_st);
+    wire de_is_invalid = ~(de_is_sub|de_is_movl|de_is_movh|de_is_jz|de_is_jnz|de_is_js|de_is_jns|de_is_ld|de_is_st);
 
     //Feed into register ports
 
-    wire [3:0] r2 = d_is_sub ? rb : rt;
+    wire [3:0] r2 = de_is_sub ? de_rb : de_rt;
     
-    assign raddr0_ = ra;
+    assign raddr0_ = de_ra;
     assign raddr1_ = r2;
 
+    reg d_is_sub;
+    reg d_is_movl;
+    reg d_is_movh;
+    reg d_is_jmp;
+    reg d_is_mem;
+    reg [3:0] d_rt;
+    reg [7:0] d_i;
+
+    reg d_is_jz;
+    reg d_is_jnz;
+    reg d_is_js;
+    reg d_is_jns;
+
+    reg d_is_ld;
+    reg d_is_st;
+    reg d_is_invalid;
+
+    reg [3:0] d_ra;
+    reg [3:0] d_rb;
+    reg [3:0] d_r2; 
 
     reg [15:0] d_pc;
     reg validD = 0;
     always @(posedge clk) begin
         d_pc <= f1_pc;
         validD <= validF1 & !flush;
+        d_r2 <= r2;
+        d_is_jmp <= de_is_jmp;
+        d_is_sub<= de_is_sub;
+        d_is_movl<= de_is_movl;
+        d_is_movh<= de_is_movh;
+        d_i<= de_i;
+        d_is_jz<= de_is_jz;
+        d_is_jnz<= de_is_jnz;
+        d_is_js<= de_is_js;
+        d_is_jns<= de_is_jns;
+        d_is_ld<= de_is_ld;
+        d_is_st<= de_is_st;
+        d_is_invalid <= de_is_invalid;
+
+
+        d_rt <= de_rt;
+        d_ra <= de_ra;
+        d_rb <= de_rb;
     end
 
 
@@ -149,17 +188,21 @@ module main();
     reg [15:0] m_pc;
 
 
-    wire [15:0] m_rdata1 = m_r2==4'b0000 ? 0: rdata1;
-    wire [15:0] m_rdata0 = m_ra==4'b0000 ? 0 : rdata0;
+    wire [15:0] mem_rdata1 = d_r2==4'b0000 ? 0: rdata1;
+    wire [15:0] mem_rdata0 = d_ra==4'b0000 ? 0 : rdata0;
+    assign m0InputInstruction = mem_rdata0[15:1];
+
 
     reg [3:0] m_ra;
     reg [3:0] m_rb;
     reg [3:0] m_r2; 
     
+    reg [15:0] m_rdata1;
+    reg [15:0] m_rdata0;
 
     always @(posedge clk) begin
         validM <= validD &!flush;
-        m_r2 <= r2;
+        m_r2 <= d_r2;
         m_is_jmp <= d_is_jmp;
         m_pc <= d_pc;
         m_is_sub<= d_is_sub;
@@ -174,16 +217,18 @@ module main();
         m_is_st<= d_is_st;
         m_is_invalid <= d_is_invalid;
 
+        m_rdata1 <= mem_rdata1;
+        m_rdata0 <= mem_rdata0;
 
-        m_rt <= rt;
-        m_ra <= ra;
-        m_rb <= rb;     
+
+        m_rt <= d_rt;
+        m_ra <= d_ra;
+        m_rb <= d_rb;     
    
 
     end
 
-    assign m0InputInstruction = m_rdata0[15:1];
-
+    
     //Execute
 
     reg validE = 0;
@@ -210,13 +255,11 @@ module main();
     reg [15:0] e_rdata1;
     reg [15:0] e_rdata0;
 
-    wire e_rdata1WIRE = forwardWtoE && w_rt == e_r2 ? w_output:e_rdata1;
-    wire e_rdata0WIRE = forwardWtoE && w_rt == e_ra ? w_output:e_rdata0;
+    
 
     reg [3:0] e_ra;
     reg [3:0] e_rb;
 
-    wire [15:0] e_computed_value;
 
     always @(posedge clk) begin
         e_r2 <= m_r2;
@@ -239,12 +282,14 @@ module main();
         e_rt <= m_rt;
         e_ra <= m_ra;
         e_rb <= m_rb; 
-        halt <= e_is_invalid & validE;           
+        if(e_rt==4'b0000 &&  ~(e_is_jmp|e_is_st) &&validE)
+           $write("%c",e_output[7:0]);    
+
     end
     
     //fix the computed values for jump statements
     // I think its fixed?
-    assign e_computed_value = e_is_sub ? e_rdata0 - e_rdata1:
+    wire [15:0]e_computed_value = e_is_sub ? e_rdata0 - e_rdata1:
     e_is_movl ? {{8{e_i[7]}}, e_i} :
     e_is_movh ? {e_i,e_rdata1[7:0]} :
     e_is_jz ? e_rdata0 == 0 :
@@ -258,88 +303,32 @@ module main();
     
     //what are flush conditions? 
 
-    assign flush = validE & e_is_jmp & e_computed_value == 1 ? 1 : 0;
-    wire[15:0] flushTarget = flush ? e_rdata1 : e_pc;
+    assign flush = (validE & e_is_jmp & e_computed_value  == 1 ) | (e_is_invalid & validE) ? 1 : 0;
+    wire[15:0] flushTarget = flush ? e_rdata1 : pc + 2;
 
-    assign memWen = e_is_st&validE;
+    assign memWen = e_is_st & validE;
     assign memWaddr = e_rdata0[15:1];
     assign memWdata = e_computed_value;
 
+    wire[15:0] e_output = e_is_ld ? m1OutputInstruction : e_computed_value;
 
+
+
+   
+        
+
+    //wire forwardWtoE = validW && (w_rt == e_ra || w_rt ==e_rt)? 1: 0;
 
     
-    
-    
-    
-    //Writeback
-    reg validW = 0;
-    reg [3:0] w_r2; 
-    reg w_is_sub;
-    reg w_is_movl;
-    reg w_is_movh;
-    reg w_is_jmp;
-    reg w_is_mem;
-    reg [3:0] w_rt;
-    reg [7:0] w_i;
-
-    reg w_is_jz;
-    reg w_is_jnz;
-    reg w_is_js;
-    reg w_is_jns;
-
-    reg w_is_ld;
-    reg w_is_st;
-    reg w_is_invalid;
-    reg [15:0] w_pc;
-
-
-    reg [15:0] w_rdata1;
-    reg [15:0] w_rdata0;
-
-    reg [3:0] w_ra;
-    reg [3:0] w_rb;
-
-    reg [15:0] w_computed_value;
-    wire[15:0] w_output = w_is_ld ? m1OutputInstruction : w_computed_value;
-
+    assign regWen = ~(e_is_jmp|e_is_st)&validE;
+    assign regWaddr = e_rt;
+    assign regWdata = e_output;
 
     always @(posedge clk) begin
-        validW<=validE;
-        w_r2 <= e_r2;
-        w_is_jmp <= e_is_jmp;
-        w_pc <= e_pc;
-        w_is_sub<= e_is_sub;
-        w_is_movl<= e_is_movl;
-        w_is_movh<= e_is_movh;
-        w_i<= e_i;
-        w_is_jz<= e_is_jz;
-        w_is_jnz<= e_is_jnz;
-        w_is_js<= e_is_js;
-        w_is_jns<= e_is_jns;
-        w_is_ld<= e_is_ld;
-        w_is_st<= e_is_st;
-        w_is_invalid <= e_is_invalid;
-        w_rdata1 <= e_rdata1;
-        w_rdata0 <= e_rdata0;
-        w_rt <= e_rt;
-        w_ra <= e_ra;
-        w_rb <= e_rb;    
-        w_computed_value <= e_computed_value;
-
-        if(w_rt==4'b0000 &&  ~(w_is_jmp|w_is_st) &&validW)
-           $write("%c",w_output[7:0]);
-
-
+        if (e_is_invalid & validE) begin
+            halt <= 1;
+        end
     end
-
-    wire forwardWtoE = validW && (w_rt == e_ra || w_rt ==e_rt)? 1: 0;
-
-    
-    assign regWen = ~(w_is_jmp|w_is_st)&validW;
-    assign regWaddr = w_rt;
-    assign regWdata = w_output;
-
-
 
 
     

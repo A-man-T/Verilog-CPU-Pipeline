@@ -1,0 +1,79 @@
+@0
+
+// This test case tests load after store dependencies,
+// which can be handled either through forwarding or by
+// executing writeback for store instructions a cycle 
+// before receiving the load result
+
+// load is 1 instruction after store
+8411	//r1 = 65
+8fef	//r15 = -2
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+// load is 2 instructions after store
+8421	//r1 = 66
+8fef	//r15 = -2
+0f0f	//r15 = r15 - r0
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+// load is 3 instructions after store
+8431	//r1 = 67
+8fef	//r15 = -2
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+// load is 4 instructions after store
+8441	//r1 = 68
+8fef	//r15 = -2
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+// load is 5 instructions after store
+8451	//r1 = 69
+8fef	//r15 = -2
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+// load is 6 instructions after store
+8461	//r1 = 70
+8fef	//r15 = -2
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+// load is 7 instructions after store
+8471	//r1 = 71
+8fef	//r15 = -2
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+0f0f	//r15 = r15 - r0
+ff11	//*r15 = r1
+ff02	//r2 = *r15
+0200	//r0 = r2 - r0
+
+
+ffff	// End

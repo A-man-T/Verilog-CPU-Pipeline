@@ -1,6 +1,186 @@
 @0
-8411
-a8051
-84e1
-100
-ffff
+//the simplest of test cases//
+
+//testing basic pipeline abilities
+    //all instructions
+    //r0 printing, r0 gives 0
+
+//no hazards 
+    //for pipelines with a max length of 10 stages
+    //800F is stall
+    //remove all 800F to test fowarding but will have to adjust jump locations :)
+
+//precise halting
+    //jump over halting instructions (make sure you don't set halting signal too early)
+    //dont run anything after halt
+    
+//just movs and subs
+
+8411 //movl r1 65
+8422 //movl r2 66
+8433 //movl r3 67
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+//r0 should give 0 (in subs)
+0100 //sub r0 r1 r0 - print A
+0200 //sub r0 r2 r0 - print B
+0300 //sub r0 r3 r0 - print C
+
+8BF4 //movl r4 191
+8005 //movl r5 0
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+9004 //movh r4 0
+9015 //movh r5 1
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+0540 //sub r0 r5 r4 - print A
+
+//make sure you sign extend when doing movl otherwise you'll get some weird overflow thingss
+9096 //movh r6 9
+9007 //movh r7 0
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+8146 //movl r6 20
+81E7 //movl r7 30
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+0760 //sub r0 r7 r6 - print \n
+
+
+//time for some ld and str
+F211 //str r1 r2
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+F208 //ld r8 r2
+0100 //sub r0 r1 r0 - print A
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+0800 //sub r0 r8 r0 - print A
+
+F009 //ld r9 r0 - load from mem 0 bc r0 should always give 0
+852A //movl r10 82
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+9846 //movh r10 84
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+0A90 //sub r0 r10 r9 - print A
+
+//jumps are cool too ig
+//r0 should still give 0 
+E011 //jnz r0 1 
+8181 //movl r1 22
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+9011 //movh r1 1
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+E001 //jz r0 r1
+FFFF //jump over these invalid instructions make sure your code doesnt stop too early
+FFFF 
+0300 //sub r0 r3 r0 - print C
+
+80A1 //movl r1 22
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+800F
+0100 //sub r0 r1 r0 - print \n
+
+FFFF 
+0300 //dont run this
