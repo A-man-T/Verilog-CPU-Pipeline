@@ -210,6 +210,9 @@ module main();
     reg [15:0] e_rdata1;
     reg [15:0] e_rdata0;
 
+    wire e_rdata1WIRE = forwardWtoE && w_rt == e_r2 ? w_output:e_rdata1;
+    wire e_rdata0WIRE = forwardWtoE && w_rt == e_ra ? w_output:e_rdata0;
+
     reg [3:0] e_ra;
     reg [3:0] e_rb;
 
