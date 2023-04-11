@@ -7,6 +7,7 @@ module main();
         $dumpvars(0,main);
     end
 
+
     // clock
     wire clk;
     clock c0(clk);
@@ -17,7 +18,7 @@ module main();
 
     // PC
     reg [15:0]pc = 16'h0000;
-
+    wire flush;
 
     //Memory Wires
 
@@ -37,7 +38,7 @@ module main();
 
     // memory
     mem mem(clk,
-         pc[15:1],fetchOutputInstruction,
+         flush ? flushTarget[15:1] : pc[15:1],fetchOutputInstruction,
          m0InputInstruction,m1OutputInstruction,
          memWen,memWaddr,memWdata);
 
@@ -69,11 +70,11 @@ module main();
     always @(posedge clk) begin
 
         //$write("pc = %d\n",pc);
-        pc <= pc + 2;
+        pc <= flush ? flushTarget+2: pc + 2;
     end
 
     //F1
-    reg validF1;
+    reg validF1 = 0;
     reg [15:0] f1_pc;
     //reg [15:0] f1_instruction = 16'h0000;
     always @(posedge clk) begin
@@ -119,16 +120,16 @@ module main();
 
 
     reg [15:0] d_pc;
-    reg validD;
+    reg validD = 0;
     always @(posedge clk) begin
         d_pc <= f1_pc;
-        validD <= validF1;
+        validD <= validF1 & !flush;
     end
 
 
 
     //Memory Phase
-    reg validM;
+    reg validM = 0;
     reg m_is_sub;
     reg m_is_movl;
     reg m_is_movh;
@@ -157,7 +158,7 @@ module main();
     
 
     always @(posedge clk) begin
-        validM <= validD;
+        validM <= validD &!flush;
         m_r2 <= r2;
         m_is_jmp <= d_is_jmp;
         m_pc <= d_pc;
@@ -173,7 +174,7 @@ module main();
         m_is_st<= d_is_st;
         m_is_invalid <= d_is_invalid;
 
-        
+
         m_rt <= rt;
         m_ra <= ra;
         m_rb <= rb;     
@@ -185,7 +186,7 @@ module main();
 
     //Execute
 
-    reg validE;
+    reg validE = 0;
     reg e_is_sub;
     reg e_is_movl;
     reg e_is_movh;
@@ -214,7 +215,7 @@ module main();
     wire [15:0] e_computed_value;
 
     always @(posedge clk) begin
-        validE<=validM;
+        validE<=validM & !flush;
         e_is_jmp <= m_is_jmp;
         e_pc <= m_pc;
         e_is_sub<= m_is_sub;
@@ -233,7 +234,7 @@ module main();
         e_rt <= m_rt;
         e_ra <= m_ra;
         e_rb <= m_rb; 
-        halt <= e_is_invalid;           
+        halt <= e_is_invalid & validE;           
     end
     
     //fix the computed values for jump statements
@@ -247,6 +248,14 @@ module main();
     e_is_jns ? e_rdata0[15] == 0 :
     e_is_st ? e_rdata1 : 0;
 
+
+
+    
+    //what are flush conditions? 
+
+    assign flush = validE & e_is_jmp & e_computed_value == 1 ? 1 : 0;
+    wire[15:0] flushTarget = flush ? e_rdata1 : e_pc;
+
     assign memWen = e_is_st&validE;
     assign memWaddr = e_rdata0[15:1];
     assign memWdata = e_computed_value;
@@ -258,7 +267,7 @@ module main();
     
     
     //Writeback
-    reg validW;
+    reg validW = 0;
     reg w_is_sub;
     reg w_is_movl;
     reg w_is_movh;
@@ -320,12 +329,10 @@ module main();
     
     assign regWen = ~(w_is_jmp|w_is_st)&validW;
     assign regWaddr = w_rt;
-    assign regWdata = w_computed_value;
+    assign regWdata = w_output;
 
 
 
-    wire flush;
-    //what are flush conditions? 
 
     
 
