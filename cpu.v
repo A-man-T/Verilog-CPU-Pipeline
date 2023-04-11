@@ -303,7 +303,7 @@ module main();
     
     //what are flush conditions? 
 
-    assign flush = (validE & e_is_jmp & e_computed_value  == 1 ) | (e_is_invalid & validE) ? 1 : 0;
+    assign flush = (validE & e_is_jmp & e_computed_value  == 1 ) | (e_is_invalid & validE)  ? 1 : 0;
     wire[15:0] flushTarget = flush ? e_rdata1 : pc + 2;
 
     assign memWen = e_is_st & validE;
@@ -314,7 +314,7 @@ module main();
 
 
 
-   
+   //| (validE & validM & e_is_ld && m_is_ld)
         
 
     //wire forwardWtoE = validW && (w_rt == e_ra || w_rt ==e_rt)? 1: 0;
