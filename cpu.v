@@ -187,6 +187,7 @@ module main();
     //Execute
 
     reg validE = 0;
+    reg [3:0] e_r2; 
     reg e_is_sub;
     reg e_is_movl;
     reg e_is_movh;
@@ -215,6 +216,7 @@ module main();
     wire [15:0] e_computed_value;
 
     always @(posedge clk) begin
+        e_r2 <= m_r2;
         validE<=validM & !flush;
         e_is_jmp <= m_is_jmp;
         e_pc <= m_pc;
@@ -268,6 +270,7 @@ module main();
     
     //Writeback
     reg validW = 0;
+    reg [3:0] w_r2; 
     reg w_is_sub;
     reg w_is_movl;
     reg w_is_movh;
@@ -299,6 +302,7 @@ module main();
 
     always @(posedge clk) begin
         validW<=validE;
+        w_r2 <= e_r2;
         w_is_jmp <= e_is_jmp;
         w_pc <= e_pc;
         w_is_sub<= e_is_sub;
@@ -319,12 +323,13 @@ module main();
         w_rb <= e_rb;    
         w_computed_value <= e_computed_value;
 
-
         if(w_rt==4'b0000 &&  ~(w_is_jmp|w_is_st) &&validW)
            $write("%c",w_output[7:0]);
 
 
     end
+
+    wire forwardWtoE = validW && (w_rt == e_ra || w_rt ==e_rt)? 1: 0;
 
     
     assign regWen = ~(w_is_jmp|w_is_st)&validW;
