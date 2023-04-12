@@ -26,7 +26,7 @@ module main();
     wire [15:0]fetchOutputInstruction;
 
     //M0 input wire
-    wire [15:1]m0InputInstruction;
+    wire [15:0]m0InputInstruction;
 
     wire [15:0]m1OutputInstruction;
 
@@ -63,8 +63,7 @@ module main();
         regWen,regWaddr,regWdata);
 
 
-
-
+    wire pc_is_mis = pc[0];
     //F0 + PC
     reg validF0 = 0;
     reg [15:0] f0_pc;
@@ -84,13 +83,15 @@ module main();
         validF1 <= validF0 & !flush;
     end
 
+    wire[15:0] instruction = pc_is_mis ? {m1OutputInstruction[7:0],fetchOutputInstruction[15:8]} :fetchOutputInstruction;
+
     //Decode Logic 
     //Decompose the Instruction
-    wire [3:0] de_opcode = fetchOutputInstruction[15:12];
-    wire [3:0] de_ra = fetchOutputInstruction[11:8];
-    wire [3:0] de_rb = fetchOutputInstruction[7:4];
-    wire [3:0] de_rt = fetchOutputInstruction[3:0];
-    wire [7:0] de_i = fetchOutputInstruction[11:4];
+    wire [3:0] de_opcode = instruction[15:12];
+    wire [3:0] de_ra = instruction[11:8];
+    wire [3:0] de_rb = instruction[7:4];
+    wire [3:0] de_rt = instruction[3:0];
+    wire [7:0] de_i = instruction[11:4];
 
     //Decode the operator 
     wire de_is_sub = de_opcode == 4'b0000;
@@ -186,10 +187,10 @@ module main();
     reg [15:0] m_pc;
 
     // Forwarding logic, first if avaliable forwards from the M stage then the E stage, 
-    // if no forwardging and not r0, take the value from the register file
+    // if no forwarding and not r0, take the value from the register file
     wire [15:0] mem_rdata1 = r_forwardfromM==d_r2 ?v_forwardfromM : r_forwardfromE == d_r2 ? v_forwardfromE : d_r2==4'b0000 ? 0: rdata1;
     wire [15:0] mem_rdata0 = r_forwardfromM==d_ra ? v_forwardfromM : r_forwardfromE == d_ra ? v_forwardfromE : d_ra==4'b0000 ? 0 : rdata0;
-    assign m0InputInstruction = mem_rdata0[15:1];
+    assign m0InputInstruction = pc_is_mis ? pc+1  : mem_rdata0[15:1];
 
 
     reg [3:0] m_ra;
@@ -320,13 +321,13 @@ module main();
     e_is_st ? e_rdata1 : 0;
 
 
-    //Checks if should use computed value, or a value from memory/forwarded value from store_load
+    //Checks if writeback should use computed value, or a value from memory/forwarded value from store_load
     wire[15:0] e_output = (is_str_ld) ? str_ld_val:
                              e_is_ld ? m1OutputInstruction 
                              : e_computed_value;
 
 
-
+    //Forwarding wires from E
     wire forwardfromE = regWen && (e_rt!=4'b0000) ? 1:0;
     wire[3:0] r_forwardfromE = forwardfromE ? e_rt : 4'b0000;
     wire[15:0] v_forwardfromE = forwardfromE ? e_output : 16'h0000;
@@ -334,58 +335,27 @@ module main();
 
 
     
-    //what are flush conditions? 
-
+    //Flush Conditions
     wire is_ld_ld = validE & validM & e_is_ld & m_is_ld;
     wire is_self_modifying = memWen & e_rdata0<=pc & e_rdata0>=e_pc;
-
     assign flush = (is_self_modifying)|(is_ld_ld)|(validE & e_is_jmp & e_computed_value  == 1 ) | (e_is_invalid & validE)  ? 1 : 0;
     wire[15:0] flushTarget = is_ld_ld|is_self_modifying ? e_pc+2 : flush ? e_rdata1 : pc + 2;
 
+    //Write to memory
     assign memWen = e_is_st & validE;
     assign memWaddr = e_rdata0[15:1];
     assign memWdata = e_computed_value;
 
-    
+    //Write to registers
     assign regWen = ~(e_is_jmp|e_is_st)&validE;
     assign regWaddr = e_rt;
     assign regWdata = e_output;
 
+    //Checks halt condition
     always @(posedge clk) begin
         if (e_is_invalid & validE) begin
             halt <= 1;
         end
     end
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-   // r_rdataToWrite = r_is_sub ? r_rdata1 - r_rdata0 : 
-
-   //m0InputInstruction = r_is_ld ? r_ra
-
-
-
-
-
-
-
-
-
-
-
 
 endmodule
