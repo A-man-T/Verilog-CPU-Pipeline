@@ -11,6 +11,87 @@
 
 1.  
 
+Hazard 1: Data Hazard : Read after Write
+
+Instruction sequence:
+movl r1, 78
+sub r0, r1, r0
+
+Solutions I considered: 
+Flush the pipeline or forward the value.
+
+Which one did I pick:
+I used forwarding, because it saves my CPI, as flushing would increase my CPI. 
+
+It is worth noting that my implementation will forward for write after writes and 
+other similar situations, but it doesn't matter for those. 
+
+
+
+Hazard 2: Data Hazard: Store_Load
+Instruction sequence:
+
+st r1, r2
+ld r3, r1
+
+Solutions I considered: 
+Flush the pipeline, forward the value, or do memory writeback a stage earlier. 
+
+Which one did I pick:
+I used forwarding, because it saves my CPI, as flushing would increase my CPI. 
+I forward the memory address and value of stores to the earlier stages, and check
+if they are used in later loads.
+
+
+
+
+Hazard 3: Data Hazard: Double Load
+Instruction sequence:
+
+ld r1, r2
+ld r3, r1
+
+Solutions I considered: 
+Flush the pipeline or stall the pipeline for a cycle.
+
+Which one did I pick:
+I used flushing because it was easier to implement and my stall was breaking other 
+instructions. Although it has a worse CPI, it is easier to follow the code. 
+
+
+
+
+Hazard 4: Control Hazards: Jumps
+Instruction sequence:
+
+movl r1, 0 
+movl r2, 8 
+jz r2, r1
+
+Solutions I considered: 
+Flush the pipeline or use a branch predictor 
+
+Which one did I pick:
+I used flushing because it was easier to implement. Although it has a worse CPI, 
+it is easier to follow the code. 
+
+
+
+
+Hazard 5: Resource Hazard: Misaligned PC/ Memory reference
+movl r1, 0x21
+jz r0, r1
+...
+
+Solutions I considered: 
+Use both memory ports and flush/stall the pipeline after, or just use both memory ports and bug in the case of 
+an earlier load (explained below).
+
+Which one did I pick:
+I did the second because it was easier to implement, and although my implementation will fail for some misaligned
+memory references (explained below), it can handle basic misaligned pcs. 
+
+
 
 
 (2) Can your implementation handle misaligned memory references? Explain
@@ -22,5 +103,6 @@ an aligned PC instruction. It is worth noting that if I have a load in the M
 stage of the pipeline while the pc is misaligned this will break my implementation.
 
 However, in the case I am trying to read a misaligned memory reference, my implementation
-will not read the correct addresses, only the corresponding aligned reference. 
+will not read the correct addresses, only the corresponding aligned reference. A solution 
+would be using the PC wire to read in, then flushing/stalling and resetting the PC.
 
