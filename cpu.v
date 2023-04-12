@@ -62,8 +62,9 @@ module main();
         raddr1_,rdata1,
         regWen,regWaddr,regWdata);
 
-
+    //Checks if PC is misaligned
     wire pc_is_mis = pc[0];
+
     //F0 + PC
     reg validF0 = 0;
     reg [15:0] f0_pc;
@@ -83,6 +84,7 @@ module main();
         validF1 <= validF0 & !flush;
     end
 
+    //Deals with misaligned PC
     wire[15:0] instruction = pc_is_mis ? {m1OutputInstruction[7:0],fetchOutputInstruction[15:8]} :fetchOutputInstruction;
 
     //Decode Logic 
@@ -190,6 +192,8 @@ module main();
     // if no forwarding and not r0, take the value from the register file
     wire [15:0] mem_rdata1 = r_forwardfromM==d_r2 ?v_forwardfromM : r_forwardfromE == d_r2 ? v_forwardfromE : d_r2==4'b0000 ? 0: rdata1;
     wire [15:0] mem_rdata0 = r_forwardfromM==d_ra ? v_forwardfromM : r_forwardfromE == d_ra ? v_forwardfromE : d_ra==4'b0000 ? 0 : rdata0;
+
+    //if PC is misaligned use the other read port on memory
     assign m0InputInstruction = pc_is_mis ? pc+2  : mem_rdata0[15:0];
 
 

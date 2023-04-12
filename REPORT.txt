@@ -9,4 +9,18 @@
  - Which one did you pick? Why?
 
 
+1.  
+
+
+
 (2) Can your implementation handle misaligned memory references? Explain
+
+My program can handle a misaligned PC but not all misaligned memory references. 
+This is because if the pc is misaligned I use both read ports on memory and
+construct the correct expression at the same time I would normally receive 
+an aligned PC instruction. It is worth noting that if I have a load in the M
+stage of the pipeline while the pc is misaligned this will break my implementation.
+
+However, in the case I am trying to read a misaligned memory reference, my implementation
+will not read the correct addresses, only the corresponding aligned reference. 
+
