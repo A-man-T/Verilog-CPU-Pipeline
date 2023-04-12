@@ -190,7 +190,7 @@ module main();
     // if no forwarding and not r0, take the value from the register file
     wire [15:0] mem_rdata1 = r_forwardfromM==d_r2 ?v_forwardfromM : r_forwardfromE == d_r2 ? v_forwardfromE : d_r2==4'b0000 ? 0: rdata1;
     wire [15:0] mem_rdata0 = r_forwardfromM==d_ra ? v_forwardfromM : r_forwardfromE == d_ra ? v_forwardfromE : d_ra==4'b0000 ? 0 : rdata0;
-    assign m0InputInstruction = pc_is_mis ? pc+1  : mem_rdata0[15:1];
+    assign m0InputInstruction = pc_is_mis ? pc+2  : mem_rdata0[15:0];
 
 
     reg [3:0] m_ra;
