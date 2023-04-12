@@ -305,7 +305,7 @@ module main();
         str_ld_val <= e_rdata1;
 
         //Writes to console if the target is r0
-        if(e_rt==4'b0000 &&  ~(e_is_jmp|e_is_st) &&validE)
+        if(e_rt==4'b0000 &&  ~(e_is_jmp|e_is_st) &&validE &&!e_is_invalid)
            $write("%c",e_output[7:0]);    
 
     end
