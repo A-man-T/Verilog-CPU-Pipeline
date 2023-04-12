@@ -1,25 +1,83 @@
-// This test has four consecutive loads, each load depending on the load before it.
+/*
 
-// Memory is set with the following values:
-// Byte address (in hex)    Word at byte address (in hex)
-// -----------------------------------------------------
-// 70                       0072
-// 72                       0074
-// 74                       0076
-// 76                       0041 ('A')
+    This case tests self-modifying code.
+
+    Exactly 3 instructions in this test case will be replaced by the
+    auxiliary instructions at the bottom of the test case.
+
+    The 3 instructions are:
+        1. 83f0 (movl r0, '?')
+        2. 83f0 (movl r0, '?')
+        3. e011 (jnz r1, r0)
+
+    They get replaced by (respectively):
+        1. 8540 (movl r0, 'T')
+        2. 8610 (movl r0, 'a')
+        3. e001 (jz r1, r0)
+
+    One thing to note is that the 3rd instruction isn't technically
+    self-modifying code, since we are replacing the instruction after
+    we already executed it. So it should not be in the pipeline when
+    it is being modified.
+
+    Instructions 1 and 2 on the other hand, will get replaced by the
+    store instructions that comes right before them.
+
+    If self-modifying code is not implemented, you will probably get:
+
+        ?r?nquility
+
+    The expected output is:
+
+        Tranquility
+
+    I hope that by making this test case, it will push people to step
+    out of their comfort zones and learn/experiment with something new.
+
+    If you are reading this, I wish you the best of luck with the rest
+    of this project. I am sure once you finish this project, you will
+    have grown as a person and achieved "Tranquility" in life.
+
+    Good luck, you got this! I believe in you! :)
+
+*/
 
 
 @0
-8701  // movl r1, 0x70
-f102  // ld r2, r1  # Should load 72 into r2 from address r1 = 70
-f203  // ld r3, r2  # Should load 74 into r3 from address r2 = 72
-f304  // ld r4, r3  # Should load 76 into r4 from address r3 = 74
-f400  // ld r0, r4  # Should load 41 into r0 from address r4 = 76 (prints 'A')
-80a0  // movl r0, '\n'  # Prints newline
-ffff  // END
+8081    // movl r1, 0x8
+8642    // movl r2, 0x64
+f203    // ld r3, r2
+f113    // st r3, r1 (Modifies the next instruction, 83f0)
+83f0    // movl r0, '?' (Should not execute, gets replaced)
+8720    // movl r0, 'r'
+8141    // movl r1, 0x14
+8662    // movl r2, 0x66
+f203    // ld r3, r2
+f113    // st r3, r1 (Modifies the next instruction, 83f0)
+83f0    // movl r0, '?' (Should not execute, gets replaced)
+86e0    // movl r0, 'n'
+8710    // movl r0, 'q'
+8750    // movl r0, 'u'
+8690    // movl r0, 'i'
+8301    // movl r1, 0x30
+e011    // jnz r1, r0 (Gets replaced)
+86c0    // movl r0, 'l'
+8201    // movl r1, 0x20
+8682    // movl r2, 0x68
+f203    // ld r3, r2
+f113    // st r3, r1
+81c1    // movl r1, 0x1c
+e001    // jz r1, r0 (Jumps back to print the 'i' once more)
+8740    // movl r0, 't'
+8790    // movl r0, 'y'
+80a0    // movl r0, '\n'
+ffff    // HALT
 
-@38  // This is byte address 70
-0072  // Byte address 70
-0074  // Byte address 72
-0076  // Byte address 74
-0041  // Byte address 76
+
+////////////////////////////
+// Auxiliary Instructions //
+////////////////////////////
+@32     // Byte address 0x64
+8540    // movl r0, 'T' (0x64)
+8610    // movl r0, 'a' (0x66)
+e001    // jz r1, r0 (0x68)

@@ -328,9 +328,10 @@ module main();
     //what are flush conditions? 
 
     wire is_ld_ld = validE & validM & e_is_ld & m_is_ld;
+    wire is_self_modifying = memWen & e_rdata0<=pc & e_rdata0>=e_pc;
 
-    assign flush = (is_ld_ld)|(validE & e_is_jmp & e_computed_value  == 1 ) | (e_is_invalid & validE)  ? 1 : 0;
-    wire[15:0] flushTarget = is_ld_ld ? e_pc+2 : flush ? e_rdata1 : pc + 2;
+    assign flush = (is_self_modifying)|(is_ld_ld)|(validE & e_is_jmp & e_computed_value  == 1 ) | (e_is_invalid & validE)  ? 1 : 0;
+    wire[15:0] flushTarget = is_ld_ld|is_self_modifying ? e_pc+2 : flush ? e_rdata1 : pc + 2;
 
     assign memWen = e_is_st & validE;
     assign memWaddr = e_rdata0[15:1];
