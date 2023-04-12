@@ -69,24 +69,19 @@ module main();
     reg validF0 = 0;
     reg [15:0] f0_pc;
     always @(posedge clk) begin
-
-        //$write("pc = %d\n",pc);
+        //FlushTarget always contains the next PC
         f0_pc <= pc;
         pc <= flushTarget;
         validF0 <= 1 & !flush;
     end
 
     //F1
+    //Made because memory takes 2 cycles
     reg validF1 = 0;
     reg [15:0] f1_pc;
-    //reg [15:0] f1_instruction = 16'h0000;
     always @(posedge clk) begin
-        //$write("f1_pc = %d\n",f1_pc);
         f1_pc <= f0_pc;
         validF1 <= validF0 & !flush;
-        //move this to the next stage 
-        //f1_instruction <= fetchOutputInstruction;
-        //$write("f1_instruction = %d\n",f1_instruction);
     end
 
     //Decode Logic 
@@ -111,7 +106,8 @@ module main();
 
     wire de_is_ld = de_is_mem && de_rb==4'b0000;
     wire de_is_st = de_is_mem && de_rb==4'b0001;
-
+    
+    //Ensure the instruction is valid
     wire de_is_invalid = ~(de_is_sub|de_is_movl|de_is_movh|de_is_jz|de_is_jnz|de_is_js|de_is_jns|de_is_ld|de_is_st);
 
     //Feed into register ports
@@ -120,6 +116,8 @@ module main();
     
     assign raddr0_ = de_ra;
     assign raddr1_ = r2;
+
+    //Decode Stage, copies the information into registers
 
     reg d_is_sub;
     reg d_is_movl;
@@ -160,8 +158,6 @@ module main();
         d_is_ld<= de_is_ld;
         d_is_st<= de_is_st;
         d_is_invalid <= de_is_invalid;
-
-
         d_rt <= de_rt;
         d_ra <= de_ra;
         d_rb <= de_rb;
@@ -169,7 +165,7 @@ module main();
 
 
 
-    //Memory Phase
+    //Memory Phase, copies the information into registers
     reg validM = 0;
     reg m_is_sub;
     reg m_is_movl;
@@ -189,7 +185,8 @@ module main();
     reg m_is_invalid;
     reg [15:0] m_pc;
 
-//Forward here x2
+    // Forwarding logic, first if avaliable forwards from the M stage then the E stage, 
+    // if no forwardging and not r0, take the value from the register file
     wire [15:0] mem_rdata1 = r_forwardfromM==d_r2 ?v_forwardfromM : r_forwardfromE == d_r2 ? v_forwardfromE : d_r2==4'b0000 ? 0: rdata1;
     wire [15:0] mem_rdata0 = r_forwardfromM==d_ra ? v_forwardfromM : r_forwardfromE == d_ra ? v_forwardfromE : d_ra==4'b0000 ? 0 : rdata0;
     assign m0InputInstruction = mem_rdata0[15:1];
@@ -218,21 +215,19 @@ module main();
         m_is_ld<= d_is_ld;
         m_is_st<= d_is_st;
         m_is_invalid <= d_is_invalid;
-
-
-        m_rdata1 <= mem_rdata1; //forwardWtoD && e_rt==d_r2? e_output:mem_rdata1;
-        m_rdata0 <= mem_rdata0; //forwardWtoD && e_rt==d_ra? e_output:mem_rdata0;
-
-
+        m_rdata1 <= mem_rdata1;
+        m_rdata0 <= mem_rdata0; 
         m_rt <= d_rt;
         m_ra <= d_ra;
         m_rb <= d_rb;     
    
 
     end
+    //Wires used for forwarding from E stage
     wire [15:0]c_rdata0 = r_forwardfromE == m_ra ? v_forwardfromE : m_rdata0;
     wire [15:0]c_rdata1 = r_forwardfromE == m_r2 ? v_forwardfromE : m_rdata1;
 
+    //Computes a value which can be forwarded to the mem_ wires
     wire [15:0]m_computed_value = m_is_sub ? m_rdata0 - m_rdata1:
     m_is_movl ? {{8{m_i[7]}}, m_i} :
     m_is_movh ? {m_i,c_rdata1[7:0]} :
@@ -242,12 +237,13 @@ module main();
     m_is_jns ? c_rdata0[15] == 0 :
     m_is_st ? c_rdata1 : 0;
 
+    //Determines if it can and what it should forward from the M stage
     wire forwardfromM = (~(m_is_jmp|m_is_st)&validM) && (m_rt!=4'b0000) ? 1:0;
     wire[3:0] r_forwardfromM = forwardfromM ? m_rt : 4'b0000;
     wire[15:0] v_forwardfromM = forwardfromM ? m_computed_value : 16'h0000;
 
     
-    //Execute
+    //Execute stage
 
     reg validE = 0;
     reg [3:0] e_r2; 
@@ -303,16 +299,17 @@ module main();
         e_ra <= m_ra;
         e_rb <= m_rb; 
 
+        //Handles the memory forwarding needed if there is a store then a load instruction
         is_str_ld <= (e_rdata0 == m_rdata0) & validE & validM & e_is_st & m_is_ld;
         str_ld_val <= e_rdata1;
 
+        //Writes to console if the target is r0
         if(e_rt==4'b0000 &&  ~(e_is_jmp|e_is_st) &&validE)
            $write("%c",e_output[7:0]);    
 
     end
     
-    //fix the computed values for jump statements
-    // I think its fixed?
+    //Computes a value for the e stage which is used when writing to memory
     wire [15:0]e_computed_value = e_is_sub ? e_rdata0 - e_rdata1:
     e_is_movl ? {{8{e_i[7]}}, e_i} :
     e_is_movh ? {e_i,e_rdata1[7:0]} :
@@ -321,6 +318,18 @@ module main();
     e_is_js ? e_rdata0[15] == 1 :
     e_is_jns ? e_rdata0[15] == 0 :
     e_is_st ? e_rdata1 : 0;
+
+
+    //Checks if should use computed value, or a value from memory/forwarded value from store_load
+    wire[15:0] e_output = (is_str_ld) ? str_ld_val:
+                             e_is_ld ? m1OutputInstruction 
+                             : e_computed_value;
+
+
+
+    wire forwardfromE = regWen && (e_rt!=4'b0000) ? 1:0;
+    wire[3:0] r_forwardfromE = forwardfromE ? e_rt : 4'b0000;
+    wire[15:0] v_forwardfromE = forwardfromE ? e_output : 16'h0000;
 
 
 
@@ -337,21 +346,6 @@ module main();
     assign memWaddr = e_rdata0[15:1];
     assign memWdata = e_computed_value;
 
-    wire[15:0] e_output = (is_str_ld) ? str_ld_val:
-                             e_is_ld ? m1OutputInstruction 
-                             : e_computed_value;
-
-
-
-   //| (validE & validM & e_is_ld && m_is_ld)
-        
-
-    //wire forwardWtoE = regWen && (e_rt == m_ra || e_rt ==m_r2)? 1: 0;
-    //wire forwardWtoD = regWen && (e_rt == d_ra || e_rt ==d_r2)? 1: 0;
-
-    wire forwardfromE = regWen && (e_rt!=4'b0000) ? 1:0;
-    wire[3:0] r_forwardfromE = forwardfromE ? e_rt : 4'b0000;
-    wire[15:0] v_forwardfromE = forwardfromE ? e_output : 16'h0000;
     
     assign regWen = ~(e_is_jmp|e_is_st)&validE;
     assign regWaddr = e_rt;
